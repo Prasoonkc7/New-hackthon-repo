@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
 
 const IMAGE_ALTS = [
@@ -12,11 +13,14 @@ const IMAGE_ALTS = [
   "Flood resilience project photograph from Nepal, slide 7",
   "Flood resilience project photograph from Nepal, slide 8",
 ];
-const IMAGES = IMAGE_ALTS.map((alt, index) => ({ src: `/flood-images/flood-${index + 1}.jpeg`, alt }));
+const IMAGES = IMAGE_ALTS.map((alt, index) => ({
+  src: `/flood-images/flood-${index + 1}.jpeg`,
+  alt,
+}));
 
 const INTERVAL_MS = 4500;
 
-export function FloodImageCarousel() {
+export function FloodImageCarousel({ children }: { children?: ReactNode }) {
   const { t } = useI18n();
   const [current, setCurrent] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -33,7 +37,10 @@ export function FloodImageCarousel() {
 
   useEffect(() => {
     if (paused || reducedMotion) return;
-    timer.current = window.setInterval(() => setCurrent((slide) => (slide + 1) % IMAGES.length), INTERVAL_MS);
+    timer.current = window.setInterval(
+      () => setCurrent((slide) => (slide + 1) % IMAGES.length),
+      INTERVAL_MS,
+    );
     return () => {
       if (timer.current !== null) window.clearInterval(timer.current);
       timer.current = null;
@@ -47,7 +54,7 @@ export function FloodImageCarousel() {
   return (
     <section
       aria-label={t("carousel.label")}
-      className="relative overflow-hidden rounded-xl border bg-card shadow-sm"
+      className="relative overflow-hidden rounded-none border-0 bg-card shadow-sm sm:rounded-xl sm:border"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
@@ -55,7 +62,7 @@ export function FloodImageCarousel() {
         if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false);
       }}
     >
-      <div className="relative aspect-[16/8] min-h-56 sm:min-h-72 lg:min-h-80">
+      <div className="relative min-h-[34rem] sm:aspect-[16/8] sm:min-h-[30rem] lg:min-h-[34rem]">
         {IMAGES.map((image, index) => (
           <img
             key={image.src}
@@ -66,18 +73,36 @@ export function FloodImageCarousel() {
             aria-hidden={index !== current}
           />
         ))}
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/60 to-transparent px-4 pb-4 pt-12">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#102d36]/95 via-[#102d36]/75 to-[#102d36]/20" />
+        {children && <div className="absolute inset-0 z-10 flex items-center">{children}</div>}
+        <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-3 bg-gradient-to-t from-black/70 to-transparent px-4 pb-4 pt-16">
           <p className="text-sm font-medium text-white">{t("carousel.caption")}</p>
-          <span className="shrink-0 text-xs text-white/90">{current + 1} / {IMAGES.length}</span>
+          <span className="shrink-0 text-xs text-white/90">
+            {current + 1} / {IMAGES.length}
+          </span>
         </div>
-        <button type="button" onClick={previous} aria-label={t("carousel.previous")} className="absolute left-3 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white transition hover:bg-black/65 focus:outline-none focus:ring-2 focus:ring-white">
+        <button
+          type="button"
+          onClick={previous}
+          aria-label={t("carousel.previous")}
+          className="absolute left-3 top-1/2 z-20 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white transition hover:bg-black/65 focus:outline-none focus:ring-2 focus:ring-white"
+        >
           <ChevronLeft className="size-5" />
         </button>
-        <button type="button" onClick={next} aria-label={t("carousel.next")} className="absolute right-3 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white transition hover:bg-black/65 focus:outline-none focus:ring-2 focus:ring-white">
+        <button
+          type="button"
+          onClick={next}
+          aria-label={t("carousel.next")}
+          className="absolute right-3 top-1/2 z-20 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white transition hover:bg-black/65 focus:outline-none focus:ring-2 focus:ring-white"
+        >
           <ChevronRight className="size-5" />
         </button>
       </div>
-      <div className="flex items-center justify-center gap-2 px-4 py-3" role="tablist" aria-label={t("carousel.selectSlide")}>
+      <div
+        className="flex items-center justify-center gap-2 px-4 py-3"
+        role="tablist"
+        aria-label={t("carousel.selectSlide")}
+      >
         {IMAGES.map((image, index) => (
           <button
             key={image.src}

@@ -25,22 +25,86 @@ import type {
 import { buildSeed, type Db } from "./mock-data";
 import { readCached, writeCached } from "./offline";
 
-export const API_BASE_URL: string = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
+export const API_BASE_URL: string =
+  (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
 export const IS_MOCK = !API_BASE_URL;
 
 export type EvidenceInput = { evidence?: File };
-export type NewReport = Omit<HazardReport, "id" | "createdAt" | "updatedAt" | "status" | "source" | "isDemo" | "hasImage"> & EvidenceInput;
-export type NewRescue = Omit<RescueRequest, "id" | "reference" | "status" | "createdAt" | "updatedAt" | "isDemo" | "assignedTo" | "hasImage"> & EvidenceInput;
-export type NewRelief = Omit<ReliefRequest, "id" | "status" | "createdAt" | "updatedAt" | "isDemo" | "provider">;
+export type NewReport = Omit<
+  HazardReport,
+  "id" | "createdAt" | "updatedAt" | "status" | "source" | "isDemo" | "hasImage"
+> &
+  EvidenceInput;
+export type NewRescue = Omit<
+  RescueRequest,
+  "id" | "reference" | "status" | "createdAt" | "updatedAt" | "isDemo" | "assignedTo" | "hasImage"
+> &
+  EvidenceInput;
+export type NewRelief = Omit<
+  ReliefRequest,
+  "id" | "status" | "createdAt" | "updatedAt" | "isDemo" | "provider"
+>;
 export type NewInventory = Omit<InventoryItem, "id" | "updatedAt" | "isDemo" | "confirmed">;
-export type NewRecovery = Omit<RecoveryApplication, "id" | "reference" | "status" | "history" | "createdAt" | "updatedAt" | "isDemo" | "assessment" | "decisionNote" | "hasEvidence"> & { hasEvidence?: boolean } & EvidenceInput;
+export type NewRecovery = Omit<
+  RecoveryApplication,
+  | "id"
+  | "reference"
+  | "status"
+  | "history"
+  | "createdAt"
+  | "updatedAt"
+  | "isDemo"
+  | "assessment"
+  | "decisionNote"
+  | "hasEvidence"
+> & { hasEvidence?: boolean } & EvidenceInput;
 export interface WeatherData {
-  source: string; source_url?: string; latitude: number; longitude: number; fetched_at?: string;
-  status: "live" | "unavailable"; is_stale: boolean; from_cache?: boolean;
-  current_conditions: { temperature: number | null; precipitation: number | null; rain: number | null; weather_code: number | null } | null;
-  forecast: Array<{ date: string; precipitation: number | null; probability: number | null; temperature_max: number | null }>;
-  warning_note: string; message?: string;
+  source: string;
+  source_url?: string;
+  latitude: number;
+  longitude: number;
+  fetched_at?: string;
+  timezone?: string;
+  status: "live" | "unavailable";
+  is_stale: boolean;
+  from_cache?: boolean;
+  current_conditions: {
+    time?: string;
+    temperature: number | null;
+    feels_like: number | null;
+    humidity: number | null;
+    wind_speed: number | null;
+    wind_direction: number | null;
+    pressure: number | null;
+    precipitation: number | null;
+    rain: number | null;
+    weather_code: number | null;
+  } | null;
+  hourly: Array<{
+    time: string;
+    temperature: number | null;
+    precipitation: number | null;
+    probability: number | null;
+    weather_code: number | null;
+  }>;
+  forecast: Array<{
+    date: string;
+    precipitation: number | null;
+    probability: number | null;
+    temperature_min: number | null;
+    temperature_max: number | null;
+    weather_code: number | null;
+  }>;
+  warning_note: string;
+  message?: string;
 }
+type OpenMeteoPayload = {
+  timezone?: string;
+  current?: Record<string, number | string>;
+  hourly?: Record<string, Array<number | string>>;
+  daily?: Record<string, Array<number | string>>;
+};
+const numeric = (value: number | string | undefined) => (typeof value === "number" ? value : null);
 export interface DashboardSummary {
   activeAlerts: number;
   pendingReports: number;
@@ -52,7 +116,11 @@ export interface DashboardSummary {
 
 export interface ApiService {
   login(email: string, password: string): Promise<{ user: User; accessToken: string }>;
-  register(name: string, email: string, password: string): Promise<{ user: User; accessToken: string }>;
+  register(
+    name: string,
+    email: string,
+    password: string,
+  ): Promise<{ user: User; accessToken: string }>;
   me(): Promise<User>;
   getAlerts(): Promise<Alert[]>;
   getDashboard(): Promise<DashboardSummary>;
@@ -62,20 +130,44 @@ export interface ApiService {
   getRescueRequests(): Promise<RescueRequest[]>;
   getRescueByReference(ref: string): Promise<RescueRequest | null>;
   createRescueRequest(r: NewRescue): Promise<RescueRequest>;
-  updateRescueStatus(id: string, status: RescueStatus, actor: string, assignedTo?: string): Promise<RescueRequest>;
+  updateRescueStatus(
+    id: string,
+    status: RescueStatus,
+    actor: string,
+    assignedTo?: string,
+  ): Promise<RescueRequest>;
   getShelters(): Promise<Shelter[]>;
-  submitShelterUpdate(id: string, patch: Pick<Shelter, "occupancy" | "food" | "water" | "medical">, actor: string): Promise<Shelter>;
+  submitShelterUpdate(
+    id: string,
+    patch: Pick<Shelter, "occupancy" | "food" | "water" | "medical">,
+    actor: string,
+  ): Promise<Shelter>;
   verifyShelter(id: string, verified: boolean, actor: string): Promise<Shelter>;
   getFacilities(): Promise<Facility[]>;
   getReliefRequests(): Promise<ReliefRequest[]>;
   createReliefRequest(r: NewRelief): Promise<ReliefRequest>;
-  updateReliefStatus(id: string, status: ReliefStatus, actor: string, provider?: string): Promise<ReliefRequest>;
+  updateReliefStatus(
+    id: string,
+    status: ReliefStatus,
+    actor: string,
+    provider?: string,
+  ): Promise<ReliefRequest>;
   getInventory(): Promise<InventoryItem[]>;
   addInventory(i: NewInventory): Promise<InventoryItem>;
-  updateInventory(id: string, quantity: number, confirmed: boolean, actor: string): Promise<InventoryItem>;
+  updateInventory(
+    id: string,
+    quantity: number,
+    confirmed: boolean,
+    actor: string,
+  ): Promise<InventoryItem>;
   getRecoveryApplications(): Promise<RecoveryApplication[]>;
   createRecoveryApplication(a: NewRecovery): Promise<RecoveryApplication>;
-  decideRecovery(id: string, status: RecoveryStatus, note: string, actor: string): Promise<RecoveryApplication>;
+  decideRecovery(
+    id: string,
+    status: RecoveryStatus,
+    note: string,
+    actor: string,
+  ): Promise<RecoveryApplication>;
   getActivity(): Promise<ActivityEntry[]>;
   getWeather(latitude: number, longitude: number): Promise<WeatherData>;
   getNotifications(): Promise<Notification[]>;
@@ -88,10 +180,14 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     credentials: "include",
-    headers: { ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init?.headers ?? {}) },
+    headers: {
+      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
   if (!res.ok) {
-    const data = await res.json().catch(() => null) as { error?: string } | null;
+    const data = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new Error(data?.error ?? `Request failed (${res.status})`);
   }
   return res.json() as Promise<T>;
@@ -110,28 +206,44 @@ async function cachedGet<T>(key: string, path: string): Promise<T> {
 const body = (b: unknown) => ({ body: JSON.stringify(b) });
 function multipart(data: Record<string, unknown>, file?: File) {
   const form = new FormData();
-  Object.entries(data).forEach(([key, value]) => form.append(key, typeof value === "object" ? JSON.stringify(value) : String(value ?? "")));
+  Object.entries(data).forEach(([key, value]) =>
+    form.append(key, typeof value === "object" ? JSON.stringify(value) : String(value ?? "")),
+  );
   if (file) form.append("evidence", file);
   return { body: form };
 }
 
 const httpApi: ApiService = {
-  login: (email, password) => http("/api/auth/login", { method: "POST", ...body({ email, password }) }),
-  register: (name, email, password) => http("/api/auth/register", { method: "POST", ...body({ name, email, password }) }),
+  login: (email, password) =>
+    http("/api/auth/login", { method: "POST", ...body({ email, password }) }),
+  register: (name, email, password) =>
+    http("/api/auth/register", { method: "POST", ...body({ name, email, password }) }),
   me: () => http("/api/auth/me"),
   getAlerts: () => cachedGet("alerts", "/api/alerts"),
   getDashboard: () => cachedGet("dashboard", "/api/dashboard"),
   getReports: () => cachedGet("reports", "/api/reports"),
-  createReport: (r) => { const { evidence, ...data } = r; return http("/api/reports", { method: "POST", ...multipart(data, evidence) }); },
-  verifyReport: (id, status) => http(`/api/admin/reports/${id}/verify`, { method: "PATCH", ...body({ status }) }),
+  createReport: (r) => {
+    const { evidence, ...data } = r;
+    return http("/api/reports", { method: "POST", ...multipart(data, evidence) });
+  },
+  verifyReport: (id, status) =>
+    http(`/api/admin/reports/${id}/verify`, { method: "PATCH", ...body({ status }) }),
   getRescueRequests: () => cachedGet("rescues", "/api/rescue-requests"),
   getRescueByReference: (ref) => http(`/api/rescue-requests?reference=${encodeURIComponent(ref)}`),
-  createRescueRequest: (r) => { const { evidence, ...data } = r; return http("/api/rescue-requests", { method: "POST", ...multipart(data, evidence) }); },
+  createRescueRequest: (r) => {
+    const { evidence, ...data } = r;
+    return http("/api/rescue-requests", { method: "POST", ...multipart(data, evidence) });
+  },
   updateRescueStatus: (id, status, _a, assignedTo) =>
-    http(`/api/admin/rescue-requests/${id}/status`, { method: "PATCH", ...body({ status, assignedTo }) }),
+    http(`/api/admin/rescue-requests/${id}/status`, {
+      method: "PATCH",
+      ...body({ status, assignedTo }),
+    }),
   getShelters: () => cachedGet("shelters", "/api/shelters"),
-  submitShelterUpdate: (id, patch) => http(`/api/shelters/${id}`, { method: "PATCH", ...body(patch) }),
-  verifyShelter: (id, verified) => http(`/api/admin/shelters/${id}/verify`, { method: "PATCH", ...body({ verified }) }),
+  submitShelterUpdate: (id, patch) =>
+    http(`/api/shelters/${id}`, { method: "PATCH", ...body(patch) }),
+  verifyShelter: (id, verified) =>
+    http(`/api/admin/shelters/${id}/verify`, { method: "PATCH", ...body({ verified }) }),
   getFacilities: () => cachedGet("facilities", "/api/facilities"),
   getReliefRequests: () => cachedGet("relief", "/api/relief-requests"),
   createReliefRequest: (r) => http("/api/relief-requests", { method: "POST", ...body(r) }),
@@ -139,15 +251,23 @@ const httpApi: ApiService = {
     http(`/api/relief-requests/${id}/status`, { method: "PATCH", ...body({ status, provider }) }),
   getInventory: () => cachedGet("inventory", "/api/inventory"),
   addInventory: (i) => http("/api/inventory", { method: "POST", ...body(i) }),
-  updateInventory: (id, quantity, confirmed) => http(`/api/inventory/${id}`, { method: "PATCH", ...body({ quantity, confirmed }) }),
+  updateInventory: (id, quantity, confirmed) =>
+    http(`/api/inventory/${id}`, { method: "PATCH", ...body({ quantity, confirmed }) }),
   getRecoveryApplications: () => cachedGet("recovery", "/api/recovery-applications"),
-  createRecoveryApplication: (a) => { const { evidence, ...data } = a; return http("/api/recovery-applications", { method: "POST", ...multipart(data, evidence) }); },
+  createRecoveryApplication: (a) => {
+    const { evidence, ...data } = a;
+    return http("/api/recovery-applications", { method: "POST", ...multipart(data, evidence) });
+  },
   decideRecovery: (id, status, note) =>
-    http(`/api/admin/recovery-applications/${id}/decision`, { method: "PATCH", ...body({ status, note }) }),
+    http(`/api/admin/recovery-applications/${id}/decision`, {
+      method: "PATCH",
+      ...body({ status, note }),
+    }),
   getActivity: () => http("/api/admin/activity"),
   getWeather: (latitude, longitude) => http(`/api/weather?lat=${latitude}&lon=${longitude}`),
   getNotifications: () => cachedGet("notifications", "/api/notifications"),
-  markNotificationRead: (id) => http(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" }),
+  markNotificationRead: (id) =>
+    http(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" }),
 };
 
 /* ---------------- Mock adapter ---------------- */
@@ -176,14 +296,19 @@ export function resetDemoData() {
   save();
 }
 
-const delay = <T,>(v: T, ms = 350) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), ms));
+const delay = <T>(v: T, ms = 350) =>
+  new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), ms));
 const now = () => new Date().toISOString();
 const uid = () => crypto.randomUUID().slice(0, 8);
 const refNo = (p: string) => `JR-${p}-${Math.floor(1000 + Math.random() * 9000)}`;
 function log(actor: string, action: string, target: string) {
   load().activity.unshift({ id: uid(), actor, action, target, at: now() });
 }
-function patch<T extends { id: string; updatedAt: string }>(list: T[], id: string, p: Partial<T>): T {
+function patch<T extends { id: string; updatedAt: string }>(
+  list: T[],
+  id: string,
+  p: Partial<T>,
+): T {
   const item = list.find((x) => x.id === id);
   if (!item) throw new Error("Record not found");
   Object.assign(item, p, { updatedAt: now() });
@@ -192,38 +317,123 @@ function patch<T extends { id: string; updatedAt: string }>(list: T[], id: strin
 }
 
 const mockApi: ApiService = {
-  login: async (email) => ({ user: { id: "demo-citizen", name: "Demo citizen", email, role: "citizen" }, accessToken: "demo-token" }),
-  register: async (name, email) => ({ user: { id: "demo-citizen", name, email, role: "citizen" }, accessToken: "demo-token" }),
-  me: async () => ({ id: "demo-citizen", name: "Demo citizen", email: "demo@example.com", role: "citizen" }),
+  login: async (email) => ({
+    user: { id: "demo-citizen", name: "Demo citizen", email, role: "citizen" },
+    accessToken: "demo-token",
+  }),
+  register: async (name, email) => ({
+    user: { id: "demo-citizen", name, email, role: "citizen" },
+    accessToken: "demo-token",
+  }),
+  me: async () => ({
+    id: "demo-citizen",
+    name: "Demo citizen",
+    email: "demo@example.com",
+    role: "citizen",
+  }),
   getAlerts: () => delay(load().alerts),
   getDashboard: async () => {
     const data = load();
     return delay({
       activeAlerts: data.alerts.filter((item) => item.verified).length,
-      pendingReports: data.reports.filter((item) => item.status === "unverified" || item.status === "under_review").length,
+      pendingReports: data.reports.filter(
+        (item) => item.status === "unverified" || item.status === "under_review",
+      ).length,
       openRescueRequests: data.rescues.filter((item) => item.status !== "resolved").length,
       availableShelters: data.shelters.filter((item) => item.verified).length,
-      unfulfilledReliefRequests: data.relief.filter((item) => item.status !== "delivered" && item.status !== "cancelled").length,
-      recoveryAwaitingReview: data.recovery.filter((item) => item.status === "submitted" || item.status === "under_review").length,
+      unfulfilledReliefRequests: data.relief.filter(
+        (item) => item.status !== "delivered" && item.status !== "cancelled",
+      ).length,
+      recoveryAwaitingReview: data.recovery.filter(
+        (item) => item.status === "submitted" || item.status === "under_review",
+      ).length,
     });
   },
-  getNotifications: async () => delay((JSON.parse(window.sessionStorage.getItem("jalrakshak-demo-notifications") ?? "[]") as Notification[])),
+  getNotifications: async () =>
+    delay(
+      JSON.parse(
+        window.sessionStorage.getItem("jalrakshak-demo-notifications") ?? "[]",
+      ) as Notification[],
+    ),
   markNotificationRead: async (id) => {
-    const items = JSON.parse(window.sessionStorage.getItem("jalrakshak-demo-notifications") ?? "[]") as Notification[];
+    const items = JSON.parse(
+      window.sessionStorage.getItem("jalrakshak-demo-notifications") ?? "[]",
+    ) as Notification[];
     const item = items.find((notification) => notification.id === id);
     if (!item) throw new Error("Notification not found");
     item.read = true;
     window.sessionStorage.setItem("jalrakshak-demo-notifications", JSON.stringify(items));
     return delay(item);
   },
-  getWeather: async (latitude, longitude) => delay({
-    source: "Demo data", latitude, longitude, status: "unavailable", is_stale: false,
-    current_conditions: null, forecast: [], warning_note: "Forecast data is not a confirmed flood warning.",
-    message: "Live weather is unavailable in demo mode.",
-  }),
+  getWeather: async (latitude, longitude) => {
+    const params = new URLSearchParams({
+      latitude: String(latitude),
+      longitude: String(longitude),
+      current:
+        "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure",
+      hourly: "temperature_2m,precipitation,precipitation_probability,weather_code",
+      daily:
+        "temperature_2m_min,temperature_2m_max,precipitation_sum,precipitation_probability_max,weather_code",
+      timezone: "Asia/Kathmandu",
+      forecast_days: "6",
+    });
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+    if (!res.ok) throw new Error(`Weather service error (${res.status})`);
+    const payload = (await res.json()) as OpenMeteoPayload;
+    const current = payload.current ?? {};
+    const hourly = payload.hourly ?? {};
+    const daily = payload.daily ?? {};
+    return delay({
+      source: "Open-Meteo",
+      source_url: "https://api.open-meteo.com",
+      latitude,
+      longitude,
+      timezone: payload.timezone,
+      fetched_at: new Date().toISOString(),
+      status: "live",
+      is_stale: false,
+      from_cache: false,
+      current_conditions: {
+        time: typeof current.time === "string" ? current.time : undefined,
+        temperature: numeric(current.temperature_2m),
+        feels_like: numeric(current.apparent_temperature),
+        humidity: numeric(current.relative_humidity_2m),
+        wind_speed: numeric(current.wind_speed_10m),
+        wind_direction: numeric(current.wind_direction_10m),
+        pressure: numeric(current.surface_pressure),
+        precipitation: numeric(current.precipitation),
+        rain: numeric(current.rain),
+        weather_code: numeric(current.weather_code),
+      },
+      hourly: (hourly.time ?? []).slice(0, 24).map((time, i) => ({
+        time: String(time),
+        temperature: numeric(hourly.temperature_2m?.[i]),
+        precipitation: numeric(hourly.precipitation?.[i]),
+        probability: numeric(hourly.precipitation_probability?.[i]),
+        weather_code: numeric(hourly.weather_code?.[i]),
+      })),
+      forecast: (daily.time ?? []).map((date, i) => ({
+        date: String(date),
+        precipitation: numeric(daily.precipitation_sum?.[i]),
+        probability: numeric(daily.precipitation_probability_max?.[i]),
+        temperature_min: numeric(daily.temperature_2m_min?.[i]),
+        temperature_max: numeric(daily.temperature_2m_max?.[i]),
+        weather_code: numeric(daily.weather_code?.[i]),
+      })),
+      warning_note: "Forecast data is not a confirmed flood warning.",
+    });
+  },
   getReports: () => delay(load().reports),
   async createReport(r) {
-    const rec: HazardReport = { ...r, id: uid(), createdAt: now(), updatedAt: now(), status: "unverified", source: "community", isDemo: true };
+    const rec: HazardReport = {
+      ...r,
+      id: uid(),
+      createdAt: now(),
+      updatedAt: now(),
+      status: "unverified",
+      source: "community",
+      isDemo: true,
+    };
     load().reports.unshift(rec);
     save();
     return delay(rec, 600);
@@ -235,9 +445,20 @@ const mockApi: ApiService = {
     return delay(r);
   },
   getRescueRequests: () => delay(load().rescues),
-  getRescueByReference: (ref) => delay(load().rescues.find((r) => r.reference.toUpperCase() === ref.trim().toUpperCase()) ?? null),
+  getRescueByReference: (ref) =>
+    delay(
+      load().rescues.find((r) => r.reference.toUpperCase() === ref.trim().toUpperCase()) ?? null,
+    ),
   async createRescueRequest(r) {
-    const rec: RescueRequest = { ...r, id: uid(), reference: refNo("RQ"), status: "submitted", createdAt: now(), updatedAt: now(), isDemo: true };
+    const rec: RescueRequest = {
+      ...r,
+      id: uid(),
+      reference: refNo("RQ"),
+      status: "submitted",
+      createdAt: now(),
+      updatedAt: now(),
+      isDemo: true,
+    };
     load().rescues.unshift(rec);
     save();
     return delay(rec, 700);
@@ -265,7 +486,14 @@ const mockApi: ApiService = {
   getFacilities: () => delay(load().facilities),
   getReliefRequests: () => delay(load().relief),
   async createReliefRequest(r) {
-    const rec: ReliefRequest = { ...r, id: uid(), status: "pending", createdAt: now(), updatedAt: now(), isDemo: true };
+    const rec: ReliefRequest = {
+      ...r,
+      id: uid(),
+      status: "pending",
+      createdAt: now(),
+      updatedAt: now(),
+      isDemo: true,
+    };
     load().relief.unshift(rec);
     save();
     return delay(rec, 600);
@@ -278,7 +506,13 @@ const mockApi: ApiService = {
   },
   getInventory: () => delay(load().inventory),
   async addInventory(i) {
-    const rec: InventoryItem = { ...i, id: uid(), updatedAt: now(), confirmed: false, isDemo: true };
+    const rec: InventoryItem = {
+      ...i,
+      id: uid(),
+      updatedAt: now(),
+      confirmed: false,
+      isDemo: true,
+    };
     load().inventory.unshift(rec);
     save();
     return delay(rec);
@@ -292,7 +526,17 @@ const mockApi: ApiService = {
   getRecoveryApplications: () => delay(load().recovery),
   async createRecoveryApplication(a) {
     const t = now();
-    const rec: RecoveryApplication = { ...a, id: uid(), reference: refNo("RC"), status: "submitted", assessment: "community_reported", history: [{ status: "submitted", at: t }], createdAt: t, updatedAt: t, isDemo: true };
+    const rec: RecoveryApplication = {
+      ...a,
+      id: uid(),
+      reference: refNo("RC"),
+      status: "submitted",
+      assessment: "community_reported",
+      history: [{ status: "submitted", at: t }],
+      createdAt: t,
+      updatedAt: t,
+      isDemo: true,
+    };
     load().recovery.unshift(rec);
     save();
     return delay(rec, 600);
@@ -317,6 +561,8 @@ export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; ln
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-  const x = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(x));
 }

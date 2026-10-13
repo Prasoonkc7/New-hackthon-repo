@@ -34,9 +34,10 @@ secrets and disable `SEED_DEMO` before deployment.
 ## Live weather
 
 `GET /api/weather?lat=27.7172&lon=85.3240` proxies Open-Meteo from the server.
-The response includes the provider, coordinates, retrieval time, current conditions,
-five-day precipitation/temperature forecasts, and a warning that forecasts are not
-confirmed flood warnings. Responses are cached for `WEATHER_CACHE_SECONDS` (300
+The response includes the provider, coordinates, Nepal-local observation time,
+current temperature, apparent temperature, humidity, wind, pressure,
+precipitation, the next 24 hourly points, six daily forecasts, and a warning that
+forecasts are not confirmed flood warnings. Responses are cached for `WEATHER_CACHE_SECONDS` (300
 seconds by default) and upstream failures return an honest `503` unavailable state.
 Configure `WEATHER_API_BASE_URL`, `WEATHER_TIMEOUT_SECONDS`, and
 `WEATHER_CACHE_SECONDS` in `.env`; no API key is required for the default provider.

@@ -45,9 +45,9 @@ def get_weather(
         {
             "latitude": latitude,
             "longitude": longitude,
-            "current": "temperature_2m,precipitation,rain,weather_code",
-            "hourly": "precipitation,precipitation_probability",
-            "daily": "precipitation_sum,precipitation_probability_max,temperature_2m_max",
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure",
+            "hourly": "temperature_2m,precipitation,precipitation_probability,weather_code",
+            "daily": "temperature_2m_min,temperature_2m_max,precipitation_sum,precipitation_probability_max,weather_code",
             "timezone": "Asia/Kathmandu",
             "forecast_days": 5,
         }
@@ -75,14 +75,21 @@ def get_weather(
         "status": "live",
         "is_stale": False,
         "from_cache": False,
+        "timezone": payload.get("timezone"),
         "current_conditions": {
+            "time": current.get("time"),
             "temperature": current.get("temperature_2m"),
+            "feels_like": current.get("apparent_temperature"),
+            "humidity": current.get("relative_humidity_2m"),
+            "wind_speed": current.get("wind_speed_10m"),
+            "wind_direction": current.get("wind_direction_10m"),
+            "pressure": current.get("surface_pressure"),
             "precipitation": current.get("precipitation"),
             "rain": current.get("rain"),
             "weather_code": current.get("weather_code"),
         },
-        "hourly_rainfall": [
-            {"time": t, "precipitation": p, "probability": (hourly.get("precipitation_probability") or [None] * len(hourly.get("time", [])))[i] if i < len(hourly.get("time", [])) else None}
+        "hourly": [
+            {"time": t, "temperature": (hourly.get("temperature_2m") or [None] * len(hourly.get("time", [])))[i], "precipitation": p, "probability": (hourly.get("precipitation_probability") or [None] * len(hourly.get("time", [])))[i], "weather_code": (hourly.get("weather_code") or [None] * len(hourly.get("time", [])))[i]}
             for i, (t, p) in enumerate(zip(hourly.get("time", []), hourly.get("precipitation", [])))
         ][:24],
         "forecast": [
@@ -90,7 +97,9 @@ def get_weather(
                 "date": date,
                 "precipitation": (daily.get("precipitation_sum") or [None] * len(daily["time"]))[i],
                 "probability": (daily.get("precipitation_probability_max") or [None] * len(daily["time"]))[i],
+                "temperature_min": (daily.get("temperature_2m_min") or [None] * len(daily["time"]))[i],
                 "temperature_max": (daily.get("temperature_2m_max") or [None] * len(daily["time"]))[i],
+                "weather_code": (daily.get("weather_code") or [None] * len(daily["time"]))[i],
             }
             for i, date in enumerate(daily["time"])
         ],
